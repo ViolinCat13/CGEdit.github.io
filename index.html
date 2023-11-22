@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ClanGen JSON Editor</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #333;
+            color: #fff;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+    
+        h1 {
+            color: #4285f4;
+            margin-bottom: 20px;
+        }
+    
+        #jsonEditor {
+            background-color: #424242;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            overflow: visible;
+            margin-bottom: 20px;
+            width: 80%;
+            max-width: 600px;
+        }
+    
+        #jsonEditor h2 {
+            background-color: #333;
+            color: #fff;
+            padding: 10px;
+            margin: 0;
+            font-size: 1.2em;
+        }
+    
+        .json-container {
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+            border-bottom: 1px solid #555;
+            word-wrap: break-word; /* Ensure long words wrap to the next line */
+            margin-left: 20px; /* Increased left margin for indents */
+        }
+    
+        label {
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+    
+        input[type="text"], input[type="number"] {
+            padding: 8px;
+            width: 100%;
+        }
+    
+        button {
+            background-color: #4285f4;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            font-size: 1em;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+            margin: 10px;
+        }
+    
+        button:hover {
+            background-color: #3367d6;
+        }
+    
+        input[type="file"] {
+            display: none;
+        }
+    
+        label.file-upload {
+            background-color: #4285f4;
+            color: #fff;
+            padding: 10px 20px;
+            font-size: 1em;
+            cursor: pointer;
+            border-radius: 4px;
+            margin: 10px;
+            transition: background-color 0.3s;
+        }
+    
+        label.file-upload:hover {
+            background-color: #3367d6;
+        }
+    </style>
+</head>
+<body>
+    <h1>ClanGen JSON Editor</h1>
+
+    <label for="jsonFile" class="file-upload">Upload JSON File<input type="file" id="jsonFile" accept=".json"></label>
+    
+    <p>Find pelt values <a href="https://docs.google.com/spreadsheets/d/1oPBH0Z4z5f-cYw7kcIoHxTPIKjENtJMMuxhzHMFH2kk/edit?usp=sharing">Here</a></p>
+    <p>Find other value information in the Official ClanGen discord server.</p>
+
+    <div id="jsonEditor">
+        <h2>JSON</h2>
+        <!-- The JSON values will be displayed here -->
+        <div id="editedJsonContent"></div>
+        <button onclick="downloadJSON()">Download Edited JSON</button>
+        <button onclick="revertChanges()">Revert Changes</button>
+    </div>
+
+    <script>
+        let originalJsonData;
+        const editedJsonData = {};
+    
+        document.getElementById('jsonFile').addEventListener('change', handleFileSelect);
+    
+        function handleFileSelect(event) {
+            const fileInput = event.target;
+            const file = fileInput.files[0];
+    
+            if (file) {
+                const reader = new FileReader();
+    
+                reader.onload = function (e) {
+                    const content = e.target.result;
+                    originalJsonData = JSON.parse(content);
+                    displayLiveJSON(originalJsonData, 'editedJsonContent');
+                };
+    
+                reader.readAsText(file);
+            }
+        }
+    
+        function displayLiveJSON(jsonData, elementId) {
+            const jsonEditor = document.getElementById(elementId);
+            jsonEditor.innerHTML = ''; // Clear previous content
+            createInputs(jsonData, jsonEditor, '');
+    
+            function createInputs(data, parentElement, currentPath) {
+                for (const key in data) {
+                    if (data.hasOwnProperty(key)) {
+                        const value = data[key];
+                        const fullPath = currentPath ? `${currentPath}.${key}` : key;
+    
+                        const container = document.createElement('div');
+                        container.className = 'json-container';
+    
+                        const labelElement = document.createElement('label');
+                        labelElement.innerText = key + ': ';
+    
+                        const inputElement = createInputElement(value);
+    
+                        inputElement.addEventListener('input', function () {
+                            editedJsonData[fullPath] = parseValue(inputElement.value, value);
+                            displayLiveJSON(editedJsonData, 'editedJsonContent');
+                        });
+    
+                        labelElement.appendChild(inputElement);
+                        container.appendChild(labelElement);
+                        parentElement.appendChild(container);
+    
+                        // Recursively create inputs for nested objects
+                        if (typeof value === 'object' && !Array.isArray(value)) {
+                            createInputs(value, container, fullPath);
+                        }
+                    }
+                }
+            }
+    
+            function createInputElement(value) {
+                const inputElement = document.createElement('input');
+                inputElement.type = typeof value === 'number' ? 'number' : 'text';
+                inputElement.value = value;
+
+                if (typeof value === 'object' && value !== null) {
+                    inputElement.value = "Cat Object";
+                }
+
+            return inputElement;
+            }
+
+    
+            function parseValue(value, originalValue) {
+                // Parse the value based on its original type
+                if (typeof originalValue === 'number') {
+                    return parseFloat(value) || 0;
+                } else {
+                    return value;
+                }
+            }
+        }
+    
+        function downloadJSON() {
+            const jsonString = JSON.stringify(editedJsonData, null, 2);
+    
+            // Create a Blob containing the JSON data
+            const blob = new Blob([jsonString], { type: 'application/json' });
+    
+            // Create a link element and trigger a download
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'edited_file.json';
+            a.click();
+        }
+    
+        function revertChanges() {
+            // Reset the edited data to the original
+            Object.assign(editedJsonData, originalJsonData);
+            displayLiveJSON(editedJsonData, 'editedJsonContent');
+        }
+    </script>
+        
+</body>
+</html>
